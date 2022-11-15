@@ -40,6 +40,14 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		protected $option_name = 'wpmudev_blackfriday';
 
 		/**
+		 * Hub endpoint
+		 *
+		 * @since 1.0
+		 * @var string $hub_endpoint
+		 */
+		protected $hub_endpoint = '/api/black-friday/v1/plugin';
+
+		/**
 		 * Registered plugins and their data. Used when checking for priority.
 		 *
 		 * @since 1.0
@@ -65,6 +73,8 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		protected function __construct() {
 			// Current screen actions.
 			add_action( 'current_screen', array( $this, 'current_screen_actions' ) );
+			add_action( 'wp_ajax_wpmudev_bf_act', array( $this, 'send_deal_request' ), 5 );
+			add_action( 'wp_ajax_wpmudev_bf_dismiss', array( $this, 'dismiss_deal' ), 5 );
 		}
 
 		/**
@@ -84,6 +94,10 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 			return $instance;
 		}
 
+		/**
+		 *
+		 * @return void
+		 */
 		public function current_screen_actions() {
 			// Check if BF Dashboard Notice should be shown.
 			if ( ! $this->can_load() ) {
@@ -103,13 +117,16 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 */
 		public function enqueue_scripts() {
 			$priority_plugin = $this->get_priority_plugin();
+
+			if ( is_wp_error( $priority_plugin ) ) {
+				return;
+			}
+
 			$script_data     = include dirname( __FILE__ ) . '/assets/js/main.asset.php';
 			$dependencies    = $script_data['dependencies'] ?? array(
 					'react',
 					'wp-element',
 					'wp-i18n',
-					'wp-is-shallow-equal',
-					'wp-polyfill',
 				);
 
 			wp_enqueue_script(
@@ -168,7 +185,11 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 * Checks if current page is admin dashboard.
 		 */
 		public function is_admin_dash() {
-			return function_exists( 'get_current_screen' ) && 'dashboard' === get_current_screen()->id;
+			if ( ! is_multisite() || ( is_multisite() && is_main_site() ) ) {
+				return function_exists( 'get_current_screen' ) && 'dashboard' === get_current_screen()->id;
+			}
+
+			return false;
 		}
 
 		/**
@@ -176,7 +197,12 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 */
 		public function event_expired() {
 			// Expires on 29 Nov 2022.
-			return time() > mktime( 0, 0, 0, 11, 29, 2022 );
+
+			/*
+			 * @todo Make sure to replace `15-11-2022` with `21-11-2022`
+			*/
+			return date_create( date_i18n( 'd-m-Y' ) ) < date_create( date_i18n( '15-11-2022' ) ) ||
+			       date_create( date_i18n( 'd-m-Y' ) ) >= date_create( date_i18n( '29-11-2022' ) );
 		}
 
 		/**
@@ -184,29 +210,6 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 */
 		public function dashboard_plugin_installed() {
 			return class_exists( 'WPMUDEV_Dashboard' ) || file_exists( WP_PLUGIN_DIR . '/wpmudev-updates/update-notifications.php' );
-		}
-
-		/**
-		 * Checks plugin priority.
-		 *
-		 * @todo Check when plugins are network active as well.
-		 */
-		public function plugin_has_priority() {
-			$active_plugins      = (array) get_option( 'active_plugins', array() );
-			$cur_plugin_base_dir = explode( '/', plugin_basename( dirname( __FILE__ ) ) )[0];
-
-			foreach ( $this->plugins_by_priority as $ordered_plugin ) {
-				if ( in_array( $ordered_plugin, $active_plugins ) ) {
-					if ( substr( $ordered_plugin, 0, strlen( $cur_plugin_base_dir ) ) === $cur_plugin_base_dir ) {
-						return true;
-					}
-
-					return false;
-				}
-			}
-
-			// Unnecessary but makes PhpStorm happy.
-			return false;
 		}
 
 		/**
@@ -227,18 +230,89 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 
 			foreach ( $this->plugins_by_priority as $priority_plugin_key => $priority_plugin_path ) {
 				if ( in_array( $priority_plugin_path, $active_plugins ) ) {
-					return get_plugin_data( trailingslashit( WP_PLUGIN_DIR ) . $priority_plugin_path, false, false
+					$plugin_data = get_plugin_data(
+						trailingslashit( WP_PLUGIN_DIR ) . $priority_plugin_path, false, false
 					);
+
+					if ( empty( $plugin_data ) || ! is_array( $plugin_data ) ) {
+						return new \WP_Error( 'E_INVALID_PLUGIN', esc_html__( 'Invalid plugin found' ) );
+					}
+
+					$plugin_data['plugin_id'] = $priority_plugin_key;
+
+					return $plugin_data;
 				}
 			}
 
 			return null;
 		}
 
+		/**
+		 * Checks if notice has been already shown.
+		 *
+		 * @return bool
+		 */
 		public function banner_shown_previously() {
 			$options = get_option( $this->option_name );
 
 			return ! empty( $options ) && ! empty( $options['shown_flag'] );
+		}
+
+		/**
+		 * Sets
+		 */
+		public function send_deal_request() {
+			$current_user = wp_get_current_user();
+			$plugin_id = filter_input( INPUT_POST, 'plugin_id', FILTER_SANITIZE_STRING );
+
+			$response = wp_remote_post( $this->request_url, array(
+					'method'      => 'POST',
+					'timeout'     => 45,
+					'redirection' => 5,
+					'httpversion' => '1.0',
+					'blocking'    => true,
+					'headers'     => array(),
+					'body'        => array(
+						'name' => esc_html( $current_user->display_name ),
+						'email' => esc_html( $current_user->user_email ),
+						'source' => $plugin_id
+					),
+					'cookies'     => array()
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+			} else {
+			}
+		}
+
+
+		/**
+		 * Returns WPMUDEV API Server URL
+		 *
+		 * @return string
+		 */
+		public function wpmudev_base_url() {
+			return defined( 'WPMUDEV_CUSTOM_API_SERVER' ) && WPMUDEV_CUSTOM_API_SERVER
+				? trailingslashit( WPMUDEV_CUSTOM_API_SERVER )
+				: 'https://wpmudev.com/';
+		}
+
+		/**
+		 * Returns the hub's url.
+		 *
+		 * @return string
+		 */
+		public function request_url() {
+			$url = null;
+
+			if ( self::get_dashboard_api() instanceof WPMUDEV_Dashboard_Api ) {
+				$site_id = self::get_site_id();
+
+				$url = untrailingslashit( $this->wpmudev_base_url() . $this->hub_endpoint );
+			}
+
+			return $url;
 		}
 	}
 
