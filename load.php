@@ -74,41 +74,43 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 			'beehive'     => 'beehive-analytics/beehive-analytics.php',
 		);
 
+		const SMUSH = 0;
+		const FORMINATOR = 10;
+		const HUMMIGNBIRD = 20;
+		const HUSTLE = 30;
+		const DEFENDER = 40;
+		const SMARTCRAWL = 50;
+		const BRANDA = 60;
+		const BEEHIVE = 70;
+
+		private static $printed = false;
+
+		private $plugin_id;
+		private $utm;
+		private $priority = 0;
+
 		/**
 		 * Construct handler class.
 		 *
 		 * @since 1.0
 		 */
-		protected function __construct() {
+		public function __construct( string $plugin_id = '', string $utm = '', int $priority = 10 ) {
+			if ( empty( $plugin_id ) || empty( $utm ) ) {
+				return;
+			}
+
+			$this->plugin_id = $plugin_id;
+			$this->utm = $utm;
+			$this->priority = $priority;
+
 			// Current screen actions.
 			add_action( 'current_screen', array( $this, 'current_screen_actions' ) );
+
 			add_action( 'wp_ajax_wpmudev_bf_act', array( $this, 'send_deal_request' ), 5 );
 			add_action( 'wp_ajax_wpmudev_bf_dismiss', array( $this, 'dismiss_deal' ), 5 );
 		}
 
-		/**
-		 * Initializes and returns the singleton instance.
-		 *
-		 * @since 1.0
-		 *
-		 * @return static
-		 */
-		public static function instance() {
-			static $instance = null;
-
-			if ( null === $instance ) {
-				$instance = new self();
-			}
-
-			return $instance;
-		}
-
-		/**
-		 *
-		 * @return void
-		 */
 		public function current_screen_actions() {
-			// Check if BF Dashboard Notice should be shown.
 			if ( ! $this->can_load() ) {
 				return;
 			}
@@ -116,7 +118,7 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 			// Enqueue Black Friday js.
 			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 			// Render dashboard notice.
-			add_action( 'admin_notices', array( $this, 'dashboard_notice' ) );
+			add_action( 'admin_notices', array( $this, 'dashboard_notice' ), $this->priority );
 		}
 
 		/**
@@ -125,6 +127,10 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 * @return void
 		 */
 		public function enqueue_scripts() {
+			if ( self::$printed ) {
+				return;
+			}
+
 			$priority_plugin = $this->get_priority_plugin();
 
 			if ( is_wp_error( $priority_plugin ) ) {
@@ -168,7 +174,22 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 * @return void
 		 */
 		public function dashboard_notice() {
-			echo '<div class="sui-2-2"><div class=".sui-wrap"><div id="wpmudev-bf-common-notice"></div></div></div>';
+			if ( self::$printed ) {
+				return;
+			}
+
+			self::$printed = true;
+
+			echo '<div class="sui-2-2">
+					<div class="sui-wrap">
+						<div 
+						id="wpmudev-bf-common-notice" 
+						data-bf-plugin-id="' . esc_html( $this->plugin_id ) . '"
+						data-bf-plugin-utm="' . esc_html( $this->utm ) . '"
+						>
+						</div>
+					</div>
+				</div>';
 		}
 
 		/**
@@ -324,31 +345,13 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 			return $url;
 		}
 
-		/**
-		 * Dismisses the notice.
-		 *
-		 * @return void
-		 */
 		public function dismiss_deal() {
 			/**
 			 * @todo Check with js part what key is used for nonce. For now using `security`.
 			 */
 			check_ajax_referer( $this->nonce, 'security' );
 
-			$options = get_option( $this->option_name );
-
-			if ( ! is_array( $options ) ) {
-				$options = array();
-			}
-
-			$options['dismissed_flag'] = true;
-
-			update_option( $this->option_name, $options );
-
 			wp_send_json_success( array( 'success' => true ) );
 		}
 	}
-
-	// Initialize Black Friday module.
-	Load::instance();
 }
