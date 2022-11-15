@@ -1,0 +1,8 @@
+.idea
+node_modules
+vendor/
+assets/css/
+assets/js/
+package-lock.json
+composer.lock
+*.ignore.*
