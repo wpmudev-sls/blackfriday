@@ -11,6 +11,7 @@
 
 namespace WPMUDEV\BlackFriday;
 
+use WP_Error;
 use function get_current_screen;
 
 if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
@@ -46,6 +47,14 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 * @var string $hub_endpoint
 		 */
 		protected $hub_endpoint = '/api/black-friday/v1/plugin';
+
+		/**
+		 * Nonce.
+		 *
+		 * @since 1.0
+		 * @var string $nonce
+		 */
+		protected $nonce = 'wpmudev-bf-common';
 
 		/**
 		 * Registered plugins and their data. Used when checking for priority.
@@ -122,8 +131,8 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 				return;
 			}
 
-			$script_data     = include dirname( __FILE__ ) . '/assets/js/main.asset.php';
-			$dependencies    = $script_data['dependencies'] ?? array(
+			$script_data  = include dirname( __FILE__ ) . '/assets/js/main.asset.php';
+			$dependencies = $script_data['dependencies'] ?? array(
 					'react',
 					'wp-element',
 					'wp-i18n',
@@ -140,7 +149,7 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 			wp_localize_script(
 				'wpmudev-bf-common',
 				'wpmudev_bf_common', array(
-					'nonce'        => wp_create_nonce( 'wpmudev-bf-common' ),
+					'nonce'        => wp_create_nonce( $this->nonce ),
 					'plugin_label' => $priority_plugin['Name'] ?? '',
 				)
 			);
@@ -235,7 +244,7 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 					);
 
 					if ( empty( $plugin_data ) || ! is_array( $plugin_data ) ) {
-						return new \WP_Error( 'E_INVALID_PLUGIN', esc_html__( 'Invalid plugin found' ) );
+						return new WP_Error( 'E_INVALID_PLUGIN', esc_html__( 'Invalid plugin found' ) );
 					}
 
 					$plugin_data['plugin_id'] = $priority_plugin_key;
@@ -255,7 +264,7 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		public function banner_shown_previously() {
 			$options = get_option( $this->option_name );
 
-			return ! empty( $options ) && ! empty( $options['shown_flag'] );
+			return ! empty( $options ) && ! empty( $options['dismissed_flag'] );
 		}
 
 		/**
@@ -263,7 +272,7 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 */
 		public function send_deal_request() {
 			$current_user = wp_get_current_user();
-			$plugin_id = filter_input( INPUT_POST, 'plugin_id', FILTER_SANITIZE_STRING );
+			$plugin_id    = filter_input( INPUT_POST, 'plugin_id', FILTER_SANITIZE_STRING );
 
 			$response = wp_remote_post( $this->request_url, array(
 					'method'      => 'POST',
@@ -273,8 +282,8 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 					'blocking'    => true,
 					'headers'     => array(),
 					'body'        => array(
-						'name' => esc_html( $current_user->display_name ),
-						'email' => esc_html( $current_user->user_email ),
+						'name'   => esc_html( $current_user->display_name ),
+						'email'  => esc_html( $current_user->user_email ),
 						'source' => $plugin_id
 					),
 					'cookies'     => array()
@@ -313,6 +322,30 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 			}
 
 			return $url;
+		}
+
+		/**
+		 * Dismisses the notice.
+		 *
+		 * @return void
+		 */
+		public function dismiss_deal() {
+			/**
+			 * @todo Check with js part what key is used for nonce. For now using `security`.
+			 */
+			check_ajax_referer( $this->nonce, 'security' );
+
+			$options = get_option( $this->option_name );
+
+			if ( ! is_array( $options ) ) {
+				$options = array();
+			}
+
+			$options['dismissed_flag'] = true;
+
+			update_option( $this->option_name, $options );
+
+			wp_send_json_success( array( 'success' => true ) );
 		}
 	}
 
