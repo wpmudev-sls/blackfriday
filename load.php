@@ -57,23 +57,8 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		protected $nonce = 'wpmudev-bf-common';
 
 		/**
-		 * Registered plugins and their data. Used when checking for priority.
-		 *
-		 * @since 1.0
-		 * @var array $plugins_by_priority
-		 *
+		 * Constnats to be used by plugins.
 		 */
-		private $plugins_by_priority = array(
-			'smush'       => 'wp-smushit/wp-smush.php',
-			'forminator'  => 'forminator/forminator.php',
-			'hummingbird' => 'hummingbird-performance/wp-hummingbird.php',
-			'hustle'      => 'wordpress-popup/popover.php',
-			'defender'    => 'defender-security/wp-defender.php',
-			'smartcrawl'  => 'smartcrawl-seo/wpmu-dev-seo.php',
-			'branda'      => 'branda-white-labeling/ultimate-branding.php',
-			'beehive'     => 'beehive-analytics/beehive-analytics.php',
-		);
-
 		const SMUSH = 0;
 		const FORMINATOR = 10;
 		const HUMMIGNBIRD = 20;
@@ -83,10 +68,36 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		const BRANDA = 60;
 		const BEEHIVE = 70;
 
+		/**
+		 * Boolean that holds a notification printed state.
+		 *
+		 * @since 1.0
+		 * @var bool
+		 */
 		private static $printed = false;
 
+		/**
+		 * The plugin id. Passed via data attributes to js.
+		 *
+		 * @since 1.0
+		 * @var string
+		 */
 		private $plugin_id;
+
+		/**
+		 * The plugin utm link. Passed via data attributes to js.
+		 *
+		 * @since 1.0
+		 * @var string
+		 */
 		private $utm;
+
+		/**
+		 * Plugin priority to be used as admin_notices hook priority.
+		 *
+		 * @since 1.0
+		 * @var int
+		 */
 		private $priority = 0;
 
 		/**
@@ -131,12 +142,6 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 				return;
 			}
 
-			$priority_plugin = $this->get_priority_plugin();
-
-			if ( is_wp_error( $priority_plugin ) ) {
-				return;
-			}
-
 			$script_data  = include dirname( __FILE__ ) . '/assets/js/main.asset.php';
 			$dependencies = $script_data['dependencies'] ?? array(
 					'react',
@@ -156,7 +161,6 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 				'wpmudev-bf-common',
 				'wpmudev_bf_common', array(
 					'nonce'        => wp_create_nonce( $this->nonce ),
-					'plugin_label' => $priority_plugin['Name'] ?? '',
 				)
 			);
 
@@ -240,41 +244,6 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 */
 		public function dashboard_plugin_installed() {
 			return class_exists( 'WPMUDEV_Dashboard' ) || file_exists( WP_PLUGIN_DIR . '/wpmudev-updates/update-notifications.php' );
-		}
-
-		/**
-		 * Returns data of the active plugin with the highest priority.
-		 *
-		 * @return mixed|string|null
-		 */
-		public function get_priority_plugin() {
-			$active_plugins = (array) get_option( 'active_plugins', array() );
-
-			if ( is_multisite() ) {
-				$network_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
-
-				if ( ! empty( $network_plugins ) ) {
-					$active_plugins = wp_parse_args( $active_plugins, $network_plugins );
-				}
-			}
-
-			foreach ( $this->plugins_by_priority as $priority_plugin_key => $priority_plugin_path ) {
-				if ( in_array( $priority_plugin_path, $active_plugins ) ) {
-					$plugin_data = get_plugin_data(
-						trailingslashit( WP_PLUGIN_DIR ) . $priority_plugin_path, false, false
-					);
-
-					if ( empty( $plugin_data ) || ! is_array( $plugin_data ) ) {
-						return new WP_Error( 'E_INVALID_PLUGIN', esc_html__( 'Invalid plugin found' ) );
-					}
-
-					$plugin_data['plugin_id'] = $priority_plugin_key;
-
-					return $plugin_data;
-				}
-			}
-
-			return null;
 		}
 
 		/**
