@@ -11,14 +11,16 @@
 
 namespace WPMUDEV\BlackFriday;
 
-if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
+use WP_Error;
+
+if ( ! class_exists( __NAMESPACE__ . '\\Banner' ) ) {
 	/**
 	 * Class Load.
 	 *
 	 * @since    1.0
-	 * @package  WPMUDEV\BlackFriday\Load
+	 * @package  WPMUDEV\BlackFriday\Banner
 	 */
-	class Load {
+	class Banner {
 
 		/**
 		 * Version number.
@@ -257,10 +259,14 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		 * @return boolean
 		 */
 		public function event_expired() {
+			$current_date = apply_filters( 'wpmudev_blackfriday_current_date', 'd-m-Y' );
+			$start_date = apply_filters( 'wpmudev_blackfriday_start_date', '21-11-2022' );
+			$expire_date = apply_filters( 'wpmudev_blackfriday_expire_date', '29-11-2022' );
+			
 			// Expires on 29 Nov 2022.
 			return (
-				date_create( date_i18n( 'd-m-Y' ) ) < date_create( date_i18n( '21-11-2022' ) ) ||
-				date_create( date_i18n( 'd-m-Y' ) ) >= date_create( date_i18n( '29-11-2022' ) )
+				date_create( date_i18n( $current_date ) )->getTimestamp() < date_create( date_i18n( $start_date ) )->getTimestamp() ||
+				date_create( date_i18n( $current_date ) )->getTimestamp() >= date_create( date_i18n( $expire_date ) )->getTimestamp()
 			);
 		}
 
