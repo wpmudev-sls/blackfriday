@@ -5,7 +5,7 @@ gulp.task('build', () => {
 		.src(
 			[
 				'./README.md',
-				'./load.php',
+				'./banner.php',
 				'./LICENSE',
 				'./assets/**/*',
 			],
