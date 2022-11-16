@@ -1,20 +1,35 @@
 {
-  "name": "hustle-black-friday",
+  "name": "wpmudev-black-friday",
   "version": "1.0.0",
-  "description": "Hustle Black Friday deal",
-  "main": "main.js",
+  "description": "WPMUDEV Black Friday deal submodule",
+  "main": "load.php",
   "scripts": {
-    "build:bf-js": "wp-scripts build assets/dev/js/main.js --output-path=assets/js",
-    "watch:bf-js": "wp-scripts start assets/dev/js/main.js --output-path=assets/js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "watch": "clear && webpack --watch --mode development",
+    "compile": "clear && webpack --progress --mode production",
+    "build": "clear && webpack --progress --mode production && gulp build"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "WPMU DEV",
+  "license": "GPL-3.0",
   "dependencies": {
+    "@wpmudev/shared-ui": "2.12.13",
     "@wpmudev/shared-notifications-black-friday": "^1.1.0"
   },
   "devDependencies": {
-    "@wordpress/scripts": "^24.5.0",
-    "@wpmudev/shared-ui": "^2.12.13"
+    "@babel/core": "^7.17.8",
+    "@babel/preset-env": "^7.16.11",
+    "@babel/preset-react": "^7.16.7",
+    "babel-loader": "^8.2.4",
+    "clean-webpack-plugin": "^4.0.0",
+    "css-loader": "^6.7.1",
+    "eslint-plugin-react": "^7.29.4",
+    "gulp": "4.0.2",
+    "mini-css-extract-plugin": "^2.6.0",
+    "node-sass": "^7.0.1",
+    "sass-loader": "^12.6.0",
+    "style-loader": "^3.3.1",
+    "webpack": "^5.70.0",
+    "webpack-cli": "^4.9.2",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
   }
 }
