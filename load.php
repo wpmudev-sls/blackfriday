@@ -11,8 +11,6 @@
 
 namespace WPMUDEV\BlackFriday;
 
-use WP_Error;
-
 if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 	/**
 	 * Class Load.
@@ -261,7 +259,7 @@ if ( ! class_exists( __NAMESPACE__ . '\\Load' ) ) {
 		public function event_expired() {
 			// Expires on 29 Nov 2022.
 			return (
-				date_create( date_i18n( 'd-m-Y' ) ) < date_create( date_i18n( '15-11-2022' ) ) ||
+				date_create( date_i18n( 'd-m-Y' ) ) < date_create( date_i18n( '21-11-2022' ) ) ||
 				date_create( date_i18n( 'd-m-Y' ) ) >= date_create( date_i18n( '29-11-2022' ) )
 			);
 		}
