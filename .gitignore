@@ -1,8 +1,7 @@
 .idea
 node_modules
 vendor/
-assets/css/
-assets/js/
+assets/
+build/
 package-lock.json
-composer.lock
 *.ignore.*
